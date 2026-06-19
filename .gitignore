@@ -1,0 +1,11 @@
+# Dependencies and generated Next.js files
+node_modules/
+.next/
+
+# Local credentials and environment configuration
+.env.local
+.env*.local
+
+# Operating system and diagnostic files
+.DS_Store
+npm-debug.log*
