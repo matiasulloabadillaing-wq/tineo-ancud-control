@@ -542,7 +542,8 @@ td button,
 }
 
 .progress-box .planned {
-  background: var(--orange);
+  background: transparent;
+  color: #fff;
 }
 
 .global-summary,
