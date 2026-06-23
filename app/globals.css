@@ -522,7 +522,23 @@ td button,
 }
 
 .progress-box .real {
+  background: transparent;
+  color: #fff;
+}
+
+.progress-box .negative {
+  background: var(--red);
+  color: #fff;
+}
+
+.progress-box .positive {
   background: var(--green);
+  color: #06110a;
+}
+
+.progress-box .neutral {
+  background: transparent;
+  color: rgba(255, 255, 255, .7);
 }
 
 .progress-box .planned {

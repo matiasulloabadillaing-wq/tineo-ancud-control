@@ -2294,12 +2294,16 @@ function getStructureTone(item) {
 function getDeviationTone(item) {
   const deviation = getDeviation(item);
   if (!isNumber(deviation)) return "muted-text";
-  return deviation < 0 ? "negative" : "positive";
+  if (deviation < 0) return "negative";
+  if (deviation > 0) return "positive";
+  return "neutral";
 }
 
 function getValueTone(value) {
   if (!isNumber(value)) return "muted-text";
-  return value < 0 ? "negative" : "positive";
+  if (value < 0) return "negative";
+  if (value > 0) return "positive";
+  return "neutral";
 }
 
 function getStructureProcessRows(structure, processes = generalProcesses) {
