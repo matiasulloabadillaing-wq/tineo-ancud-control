@@ -392,21 +392,57 @@ function upsertStructureState_(ss, payload) {
 }
 
 function appendProgram_(ss, payload) {
-  const planId = nextId_(ss, 'SIS_PROGRAMA_GENERAL', 'PROG');
-  deleteByColumn_(ss, 'SIS_PROGRAMA_GENERAL', 'estructura', payload.id);
-  const normalizedRows = normalizeProgramRows_(payload.programRows || []);
-  normalizedRows.forEach((row) => {
-    appendObject_(ss, 'SIS_PROGRAMA_GENERAL', {
+  var sheet = getOrCreateSheet_(ss, 'SIS_PROGRAMA_GENERAL');
+  var headers = getHeaders_(sheet, ['programa_id', 'estructura', 'item', 'partida', 'peso', 'fecha_inicio', 'fecha_termino', 'finalizada_100', 'actualizado_por', 'actualizado_en', 'creado_en']);
+  var normalizedRows = normalizeProgramRows_(payload.programRows || []);
+  var structureId = String(payload.id).trim();
+  var now = new Date();
+
+  var existingByItem = {};
+  if (sheet.getLastRow() >= 2) {
+    var colEstructura = headers.indexOf('estructura') + 1;
+    var colItem = headers.indexOf('item') + 1;
+    if (colEstructura && colItem) {
+      var data = sheet.getRange(2, 1, sheet.getLastRow() - 1, headers.length).getValues();
+      for (var i = 0; i < data.length; i++) {
+        var rowStructure = String(data[i][colEstructura - 1]).trim();
+        var rowItem = String(data[i][colItem - 1]).trim();
+        if (rowStructure === structureId) {
+          existingByItem[rowItem] = i + 2;
+        }
+      }
+    }
+  }
+
+  var planId = nextId_(ss, 'SIS_PROGRAMA_GENERAL', 'PROG');
+  normalizedRows.forEach(function(row) {
+    var object = {
       programa_id: planId,
-      estructura: payload.id,
+      estructura: structureId,
       item: row.item,
       partida: row.name,
       peso: row.weight,
       fecha_inicio: row.start || '',
       fecha_termino: row.end || '',
       finalizada_100: row.completed ? 'SI' : 'NO',
-      creado_en: new Date()
-    });
+      actualizado_en: now,
+      creado_en: now
+    };
+    var targetRow = existingByItem[String(row.item).trim()];
+    if (targetRow) {
+      var current = sheet.getRange(targetRow, 1, 1, headers.length).getValues()[0];
+      var merged = {};
+      headers.forEach(function(h, idx) { merged[h] = current[idx] || ''; });
+      merged.partida = object.partida;
+      merged.peso = object.peso;
+      merged.fecha_inicio = object.fecha_inicio;
+      merged.fecha_termino = object.fecha_termino;
+      merged.finalizada_100 = object.finalizada_100;
+      merged.actualizado_en = now;
+      sheet.getRange(targetRow, 1, 1, headers.length).setValues([headers.map(function(h) { return merged[h] !== undefined ? merged[h] : ''; })]);
+    } else {
+      sheet.appendRow(headers.map(function(h) { return object[h] !== undefined ? object[h] : ''; }));
+    }
   });
 }
 

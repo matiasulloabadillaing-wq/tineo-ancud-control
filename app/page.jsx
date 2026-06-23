@@ -296,6 +296,7 @@ export default function Home() {
             try {
               await updateStructure(payload);
               showToast(setToast, "Programacion guardada correctamente.");
+              setSelectedStructure(null);
             } catch (error) {
               showToast(setToast, error.message || "No se pudo guardar la programacion.", true);
             }
