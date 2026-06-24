@@ -406,7 +406,7 @@ function appendProgram_(ss, payload) {
       var data = sheet.getRange(2, 1, sheet.getLastRow() - 1, headers.length).getValues();
       for (var i = 0; i < data.length; i++) {
         var rowStructure = String(data[i][colEstructura - 1]).trim();
-        var rowItem = String(data[i][colItem - 1]).trim();
+        var rowItem = String(data[i][colItem - 1]).trim().replace(',', '.');
         if (rowStructure === structureId) {
           existingByItem[rowItem] = i + 2;
         }
@@ -509,8 +509,9 @@ function normalizeProgramRows_(rows) {
 }
 
 function normalizeProgramItem_(value) {
-  const text = String(value || '').trim();
-  return GENERAL_PROCESSES.some((process) => process.item === text) ? text : '';
+  const text = String(value == null ? '' : value).trim().replace(',', '.');
+  var match = GENERAL_PROCESSES.filter(function(process) { return process.item === text; });
+  return match.length ? match[0].item : '';
 }
 
 function getGeneralProcess_(item) {

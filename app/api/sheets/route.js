@@ -302,8 +302,8 @@ function normalizeProgramRows(rows = []) {
 }
 
 function normalizeProgramItem(value) {
-  const text = String(value || "").trim();
-  return generalProcesses.some((process) => String(process.item) === text) ? text : "";
+  const text = String(value ?? "").trim().replace(",", ".");
+  return generalProcesses.find((process) => String(process.item) === text)?.item || "";
 }
 
 function cleanIsoDate(value) {

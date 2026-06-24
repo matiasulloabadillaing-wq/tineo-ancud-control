@@ -2191,8 +2191,8 @@ function buildProgramRows(structure) {
 }
 
 function normalizeProgramItem(value) {
-  const text = String(value || "").trim();
-  return generalProcesses.some((item) => String(item.item) === text) ? text : "";
+  const text = String(value ?? "").trim().replace(",", ".");
+  return generalProcesses.find((item) => String(item.item) === text)?.item || "";
 }
 
 function cleanIsoDate(value) {
