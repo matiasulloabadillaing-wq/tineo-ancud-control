@@ -666,7 +666,7 @@ function StructureModal({ structure, data, user, tab, setTab, onUpdateStructure,
     setSavingLegal(true);
     const nextReleased = !isReleased;
     const syncedRows = buildProgramRows(structure).map((row) => (
-      row.item === "1"
+      normalizeItemKey(row.item) === "1"
         ? { ...row, completed: nextReleased, start: "", end: "" }
         : row
     ));
@@ -738,11 +738,11 @@ function Programacion({ structure, user, onSaveProgram }) {
   }, [structure.id, structure.legal, structure.programRows]);
 
   async function updateRow(item, patch, autosave = false) {
-    const nextRows = rows.map((row) => row.item === item ? { ...row, ...patch } : row);
+    const nextRows = rows.map((row) => normalizeItemKey(row.item) === normalizeItemKey(item) ? { ...row, ...patch } : row);
     setRows(nextRows);
     if (!autosave) return;
     const nextReady = nextRows.every((row) => row.completed || (row.start && row.end));
-    await saveRows(nextRows, nextReady, item === "1" ? (patch.completed ? "LIBERADA" : "NO LIBERADA") : undefined);
+    await saveRows(nextRows, nextReady, normalizeItemKey(item) === "1" ? (patch.completed ? "LIBERADA" : "NO LIBERADA") : undefined);
   }
 
   async function saveRows(nextRows = rows, nextReady = allReady, legal) {
@@ -803,7 +803,7 @@ function Programacion({ structure, user, onSaveProgram }) {
                   completed: event.target.checked,
                   start: event.target.checked ? "" : item.start,
                   end: event.target.checked ? "" : item.end
-                }, item.item === "1")}
+                }, normalizeItemKey(item.item) === "1")}
               />
               Finalizada 100%
             </label>
@@ -921,16 +921,17 @@ function Inspeccion({ structure, data, user, onCreateComment }) {
 }
 
 function ProcessInspection({ item, structure, data, user, onCreateComment }) {
-  const [open, setOpen] = useState(item.item === "6.1");
+  const itemKey = normalizeItemKey(item.item);
+  const [open, setOpen] = useState(itemKey === "6.1");
   const [dialog, setDialog] = useState(null);
-  const detail = item.item === "6.1"
+  const detail = itemKey === "6.1"
     ? getReportActivities("OOCC", structure, data.processCatalog)
-    : item.item === "6.2"
+    : itemKey === "6.2"
       ? getReportActivities("OOMM", structure, data.processCatalog)
       : [];
   const comments = (data.comments || []).filter((comment) => (
     String(comment.structureId || comment.estructura || "") === String(structure.id)
-    && String(comment.processItem || comment.item || "") === String(item.item)
+    && normalizeItemKey(comment.processItem || comment.item || "") === normalizeItemKey(item.item)
   ));
   return (
     <article className="process-card">
@@ -2165,7 +2166,7 @@ function buildProgramRows(structure) {
     planned: 0,
     completed: false
   }));
-  const byItem = new Map(canonicalRows.map((row) => [String(row.item), row]));
+  const byItem = new Map(canonicalRows.map((row) => [normalizeItemKey(row.item), row]));
 
   (structure.programRows || []).forEach((row) => {
     const item = normalizeProgramItem(row.item);
@@ -2183,15 +2184,19 @@ function buildProgramRows(structure) {
   });
 
   return canonicalRows.map((base) => {
-    const row = byItem.get(String(base.item)) || base;
-    return row.item === "1"
+    const row = byItem.get(normalizeItemKey(base.item)) || base;
+    return normalizeItemKey(row.item) === "1"
       ? { ...row, completed: structure.legal === "LIBERADA" || row.completed === true }
       : row;
   });
 }
 
+function normalizeItemKey(value) {
+  return String(value ?? "").trim().replace(",", ".");
+}
+
 function normalizeProgramItem(value) {
-  const text = String(value ?? "").trim().replace(",", ".");
+  const text = normalizeItemKey(value);
   return generalProcesses.find((item) => String(item.item) === text)?.item || "";
 }
 
@@ -2323,7 +2328,7 @@ function getProjectedProgress(start, end) {
 function getStructureProcessRows(structure, processes = generalProcesses) {
   const programRows = buildProgramRows(structure);
   return processes.map((process) => {
-    const programmed = programRows.find((row) => String(row.item) === String(process.item));
+    const programmed = programRows.find((row) => normalizeItemKey(row.item) === normalizeItemKey(process.item));
     const real = programmed?.completed ? 100 : numberOrZero(programmed?.real);
     const planned = programmed?.completed
       ? 100
