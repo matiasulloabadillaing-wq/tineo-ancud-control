@@ -183,30 +183,39 @@ function readComments_(ss) {
 }
 
 function readProgramsByStructure_(ss) {
-  const rows = readSheetObjects_(ss, 'SIS_PROGRAMA_GENERAL');
-  const grouped = {};
-  rows.forEach((row) => {
-    const id = String(row.estructura || '').trim();
+  var rows = readSheetObjects_(ss, 'SIS_PROGRAMA_GENERAL');
+  var grouped = {};
+  rows.forEach(function(row) {
+    var r = lowercaseKeys_(row);
+    var id = String(r.estructura || '').trim();
     if (!id) return;
-    const item = normalizeProgramItem_(row.item);
+    var item = normalizeProgramItem_(r.item);
     if (!item) return;
     if (!grouped[id]) grouped[id] = {};
-    const canonical = getGeneralProcess_(item);
+    var canonical = getGeneralProcess_(item);
     grouped[id][item] = {
       item: item,
       name: canonical.name,
       weight: canonical.weight,
-      start: formatDateForClient_(row.fecha_inicio),
-      end: formatDateForClient_(row.fecha_termino),
-      completed: toBoolOrNull_(row.finalizada_100) === true
+      start: formatDateForClient_(r.fecha_inicio),
+      end: formatDateForClient_(r.fecha_termino),
+      completed: toBoolOrNull_(r.finalizada_100) === true
     };
   });
-  Object.keys(grouped).forEach((id) => {
+  Object.keys(grouped).forEach(function(id) {
     grouped[id] = GENERAL_PROCESSES
-      .map((process) => grouped[id][process.item])
+      .map(function(process) { return grouped[id][process.item]; })
       .filter(Boolean);
   });
   return grouped;
+}
+
+function lowercaseKeys_(obj) {
+  var result = {};
+  Object.keys(obj).forEach(function(key) {
+    result[key.toLowerCase().trim()] = obj[key];
+  });
+  return result;
 }
 
 function readProcessCatalog_(ss) {

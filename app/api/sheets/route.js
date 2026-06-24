@@ -46,6 +46,12 @@ export async function POST(request) {
       if (sheetResponse.ok) {
         const result = await sheetResponse.json();
         if (result?.ok !== false) {
+          if (result.data?.structures) {
+            result.data.structures = result.data.structures.map((s) => ({
+              ...s,
+              programRows: normalizeProgramRows(s.programRows || [])
+            }));
+          }
           return Response.json({ ...result, source: "google-sheets" });
         }
       }
