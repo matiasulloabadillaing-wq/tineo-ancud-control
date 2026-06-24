@@ -2134,7 +2134,7 @@ function normalizeData(data) {
 function enrichStructureProgress(structure) {
   const rows = getStructureProcessRows(structure, generalProcesses);
   const hasRealProgress = rows.some((row) => row.completed || (isNumber(row.real) && row.real > 0));
-  const hasPlannedProgress = rows.some((row) => row.start && row.end);
+  const hasPlannedProgress = rows.some((row) => row.completed || (row.start && row.end));
   const computedReal = hasRealProgress ? getWeightedProgress(rows, "real") : structure.real;
   const computedPlanned = hasPlannedProgress ? getWeightedProgress(rows, "planned") : structure.planned;
   const programmed = structure.programmed === true || hasPlannedProgress ? true : structure.programmed;
@@ -2307,12 +2307,29 @@ function getValueTone(value) {
   return "neutral";
 }
 
+function getProjectedProgress(start, end) {
+  if (!start || !end) return 0;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const s = new Date(`${start}T00:00:00`);
+  const e = new Date(`${end}T00:00:00`);
+  if (today < s) return 0;
+  if (today >= e) return 100;
+  const total = e - s;
+  if (total <= 0) return 100;
+  return ((today - s) / total) * 100;
+}
+
 function getStructureProcessRows(structure, processes = generalProcesses) {
   const programRows = buildProgramRows(structure);
   return processes.map((process) => {
     const programmed = programRows.find((row) => String(row.item) === String(process.item));
     const real = programmed?.completed ? 100 : numberOrZero(programmed?.real);
-    const planned = programmed?.start && programmed?.end ? numberOrZero(programmed?.planned) : 0;
+    const planned = programmed?.completed
+      ? 100
+      : programmed?.start && programmed?.end
+        ? getProjectedProgress(programmed.start, programmed.end)
+        : 0;
     return {
       ...process,
       ...(programmed || {}),
@@ -2334,15 +2351,14 @@ function getWeightedProgress(rows, key) {
 function buildGanttRows(structuresList, expanded, filter) {
   return structuresList.flatMap((structure) => {
     const programRows = buildProgramRows(structure);
-    const visibleProgramRows = programRows
-      .filter((row) => row.start && row.end)
+    const activeRows = programRows.filter((row) => (row.start && row.end) || row.completed);
+    const visibleProgramRows = activeRows
       .filter((row) => filter === "Todas las Partidas" || `${row.item}. ${row.name}` === filter);
-    const datedRows = filter === "Todas las Partidas"
-      ? programRows.filter((row) => row.start && row.end)
-      : visibleProgramRows;
+    const datedRows = filter === "Todas las Partidas" ? activeRows : visibleProgramRows;
     if (!datedRows.length) return [];
-    const parentStart = minDate(datedRows.map((row) => row.start));
-    const parentEnd = maxDate(datedRows.map((row) => row.end));
+    const datesForRange = datedRows.filter((row) => row.start && row.end);
+    const parentStart = datesForRange.length ? minDate(datesForRange.map((row) => row.start)) : toIsoDate(new Date());
+    const parentEnd = datesForRange.length ? maxDate(datesForRange.map((row) => row.end)) : toIsoDate(new Date());
     const parent = {
       key: `tower-${structure.id}`,
       structureId: structure.id,
@@ -2358,10 +2374,10 @@ function buildGanttRows(structuresList, expanded, filter) {
         key: `tower-${structure.id}-${row.item}`,
         structureId: structure.id,
         label: `└ ${row.item}. ${row.name}`,
-        start: row.start,
-        end: row.end,
+        start: row.start || parentStart,
+        end: row.end || parentEnd,
         real: row.completed ? 100 : row.real,
-        planned: row.completed ? 100 : row.planned,
+        planned: row.completed ? 100 : getProjectedProgress(row.start, row.end),
         detail: true
       }));
     return [parent, ...visibleChildren];
