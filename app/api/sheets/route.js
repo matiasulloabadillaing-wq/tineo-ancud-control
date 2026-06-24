@@ -47,10 +47,25 @@ export async function POST(request) {
         const result = await sheetResponse.json();
         if (result?.ok !== false) {
           if (result.data?.structures) {
+            const debugStructure = result.data.structures.find((s) => (s.programRows || []).length > 0);
+            if (debugStructure) {
+              console.log(`[route.js] RAW programRows de Google Sheets para estructura ${debugStructure.id}:`);
+              (debugStructure.programRows || []).forEach((row) => {
+                console.log(`  item=${JSON.stringify(row.item)} (${typeof row.item}) start=${JSON.stringify(row.start)} end=${JSON.stringify(row.end)} fecha_inicio=${JSON.stringify(row.fecha_inicio)} fecha_termino=${JSON.stringify(row.fecha_termino)} completed=${JSON.stringify(row.completed)}`);
+              });
+              console.log(`  Total filas raw: ${(debugStructure.programRows || []).length}`);
+            }
             result.data.structures = result.data.structures.map((s) => ({
               ...s,
               programRows: normalizeProgramRows(s.programRows || [])
             }));
+            if (debugStructure) {
+              const normalized = result.data.structures.find((s) => s.id === debugStructure.id);
+              console.log(`[route.js] NORMALIZADO programRows para estructura ${debugStructure.id}:`);
+              (normalized?.programRows || []).forEach((row) => {
+                console.log(`  item=${JSON.stringify(row.item)} start=${JSON.stringify(row.start)} end=${JSON.stringify(row.end)} completed=${row.completed}`);
+              });
+            }
           }
           return Response.json({ ...result, source: "google-sheets" });
         }
