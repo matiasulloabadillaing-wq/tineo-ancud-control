@@ -2168,27 +2168,49 @@ function buildProgramRows(structure) {
   }));
   const byItem = new Map(canonicalRows.map((row) => [normalizeItemKey(row.item), row]));
 
+  console.log(`[buildProgramRows] Estructura ${structure.id} — input programRows:`,
+    (structure.programRows || []).map((row) => ({
+      item: row.item,
+      itemType: typeof row.item,
+      itemNormalized: normalizeItemKey(row.item),
+      start: row.start || row.fecha_inicio || "(vacío)",
+      end: row.end || row.fecha_termino || "(vacío)",
+      completed: row.completed ?? row.finalizada_100
+    }))
+  );
+
   (structure.programRows || []).forEach((row) => {
     const item = normalizeProgramItem(row.item);
-    if (!item || !byItem.has(item)) return;
+    if (!item || !byItem.has(item)) {
+      console.log(`[buildProgramRows] DESCARTADO — item raw="${row.item}" tipo=${typeof row.item} normalizado="${item}" existeEnMap=${byItem.has(item)}`);
+      return;
+    }
     const base = byItem.get(item);
     const completed = readBoolean(row.completed ?? row.finalizada_100);
+    const resolvedStart = cleanIsoDate(row.start || row.fecha_inicio) || "";
+    const resolvedEnd = cleanIsoDate(row.end || row.fecha_termino) || "";
+    console.log(`[buildProgramRows] ACEPTADO — item="${item}" start="${resolvedStart}" end="${resolvedEnd}" completed=${completed}`);
     byItem.set(item, {
       ...base,
-      start: cleanIsoDate(row.start || row.fecha_inicio) || "",
-      end: cleanIsoDate(row.end || row.fecha_termino) || "",
+      start: resolvedStart,
+      end: resolvedEnd,
       real: isNumber(row.real) ? row.real : base.real,
       planned: isNumber(row.planned) ? row.planned : base.planned,
       completed: completed === null ? base.completed : completed
     });
   });
 
-  return canonicalRows.map((base) => {
+  const result = canonicalRows.map((base) => {
     const row = byItem.get(normalizeItemKey(base.item)) || base;
     return normalizeItemKey(row.item) === "1"
       ? { ...row, completed: structure.legal === "LIBERADA" || row.completed === true }
       : row;
   });
+
+  console.log(`[buildProgramRows] Estructura ${structure.id} — resultado:`,
+    result.map((row) => `${row.item}: start="${row.start}" end="${row.end}" completed=${row.completed}`));
+
+  return result;
 }
 
 function normalizeItemKey(value) {
