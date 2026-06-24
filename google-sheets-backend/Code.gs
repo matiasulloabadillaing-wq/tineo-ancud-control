@@ -397,18 +397,37 @@ function appendProgram_(ss, payload) {
   var normalizedRows = normalizeProgramRows_(payload.programRows || []);
   var structureId = String(payload.id).trim();
   var now = new Date();
+  var colEstructura = headers.indexOf('estructura') + 1;
+  var colItem = headers.indexOf('item') + 1;
 
   var existingByItem = {};
-  if (sheet.getLastRow() >= 2) {
-    var colEstructura = headers.indexOf('estructura') + 1;
-    var colItem = headers.indexOf('item') + 1;
-    if (colEstructura && colItem) {
-      var data = sheet.getRange(2, 1, sheet.getLastRow() - 1, headers.length).getValues();
-      for (var i = 0; i < data.length; i++) {
-        var rowStructure = String(data[i][colEstructura - 1]).trim();
-        var rowItem = String(data[i][colItem - 1]).trim().replace(',', '.');
-        if (rowStructure === structureId) {
-          existingByItem[rowItem] = i + 2;
+  var duplicateRows = [];
+  if (sheet.getLastRow() >= 2 && colEstructura && colItem) {
+    var data = sheet.getRange(2, 1, sheet.getLastRow() - 1, headers.length).getValues();
+    for (var i = 0; i < data.length; i++) {
+      var rowStructure = String(data[i][colEstructura - 1]).trim();
+      var rowItem = normalizeItemKey_(data[i][colItem - 1]);
+      if (rowStructure === structureId && rowItem) {
+        if (existingByItem[rowItem]) {
+          duplicateRows.push(existingByItem[rowItem]);
+        }
+        existingByItem[rowItem] = i + 2;
+      }
+    }
+  }
+
+  for (var d = duplicateRows.length - 1; d >= 0; d--) {
+    sheet.deleteRow(duplicateRows[d]);
+  }
+  if (duplicateRows.length) {
+    existingByItem = {};
+    if (sheet.getLastRow() >= 2) {
+      var refreshed = sheet.getRange(2, 1, sheet.getLastRow() - 1, headers.length).getValues();
+      for (var r = 0; r < refreshed.length; r++) {
+        var rStructure = String(refreshed[r][colEstructura - 1]).trim();
+        var rItem = normalizeItemKey_(refreshed[r][colItem - 1]);
+        if (rStructure === structureId && rItem) {
+          existingByItem[rItem] = r + 2;
         }
       }
     }
@@ -416,6 +435,7 @@ function appendProgram_(ss, payload) {
 
   var planId = nextId_(ss, 'SIS_PROGRAMA_GENERAL', 'PROG');
   normalizedRows.forEach(function(row) {
+    var itemKey = normalizeItemKey_(row.item);
     var object = {
       programa_id: planId,
       estructura: structureId,
@@ -428,11 +448,15 @@ function appendProgram_(ss, payload) {
       actualizado_en: now,
       creado_en: now
     };
-    var targetRow = existingByItem[String(row.item).trim()];
+    var targetRow = existingByItem[itemKey];
     if (targetRow) {
       var current = sheet.getRange(targetRow, 1, 1, headers.length).getValues()[0];
       var merged = {};
-      headers.forEach(function(h, idx) { merged[h] = current[idx] || ''; });
+      headers.forEach(function(h, idx) {
+        var val = current[idx];
+        merged[h] = (val === 0 || val === false) ? val : (val || '');
+      });
+      merged.item = object.item;
       merged.partida = object.partida;
       merged.peso = object.peso;
       merged.fecha_inicio = object.fecha_inicio;
@@ -444,6 +468,11 @@ function appendProgram_(ss, payload) {
       sheet.appendRow(headers.map(function(h) { return object[h] !== undefined ? object[h] : ''; }));
     }
   });
+}
+
+function normalizeItemKey_(value) {
+  if (value == null) return '';
+  return String(value).trim().replace(',', '.').replace(/^'/, '');
 }
 
 function repairProgramData_(ss) {
@@ -509,7 +538,7 @@ function normalizeProgramRows_(rows) {
 }
 
 function normalizeProgramItem_(value) {
-  const text = String(value == null ? '' : value).trim().replace(',', '.');
+  const text = normalizeItemKey_(value);
   var match = GENERAL_PROCESSES.filter(function(process) { return process.item === text; });
   return match.length ? match[0].item : '';
 }
